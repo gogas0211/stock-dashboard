@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A股智能分析终端</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.12.7/Recharts.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;font-size:14px}
+body{font-family:'Noto Sans SC','JetBrains Mono',sans-serif;background:#06080f;color:#c8d0e0;min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#1a2035;border-radius:3px}
+input,button,select,textarea{font-family:inherit;font-size:inherit}
+a{color:#60a5fa;text-decoration:none}
+
+/* Layout */
+.app{display:flex;flex-direction:column;min-height:100vh}
+.header{border-bottom:1px solid #141a2e;background:rgba(8,11,20,0.95);backdrop-filter:blur(16px);position:sticky;top:0;z-index:100;padding:0 20px}
+.header-inner{max-width:1400px;margin:0 auto;height:52px;display:flex;align-items:center;justify-content:space-between}
+.logo-area{display:flex;align-items:center;gap:10px}
+.logo{width:30px;height:30px;border-radius:6px;background:linear-gradient(135deg,#e63946,#f4a261);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px}
+.logo-text{font-size:15px;font-weight:700;color:#fff;letter-spacing:-0.3px}
+.logo-sub{font-size:9px;color:#475569;font-family:'JetBrains Mono',monospace;letter-spacing:1.5px;margin-top:1px}
+.header-right{display:flex;align-items:center;gap:12px}
+
+.main{max-width:1400px;margin:0 auto;padding:16px 20px;flex:1}
+
+/* Buttons */
+.btn{padding:6px 14px;border-radius:6px;font-size:12px;font-weight:500;border:1px solid;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:5px;background:transparent}
+.btn-primary{background:linear-gradient(135deg,#e63946,#f4a261);border:none;color:#fff;font-weight:600}
+.btn-primary:hover{opacity:0.9;transform:translateY(-1px)}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+.btn-ghost{border-color:#1e293b;color:#94a3b8}.btn-ghost:hover{border-color:#334155;color:#e2e8f0}
+.btn-sm{padding:4px 10px;font-size:11px}
+
+/* Cards */
+.card{background:#0c1021;border:1px solid #141a2e;border-radius:10px;padding:14px;transition:border-color .3s}
+.card:hover{border-color:#1e293b}
+
+/* Market Grid */
+.market-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:16px}
+.market-card{padding:10px 12px}
+.market-card .label{font-size:10px;color:#475569;margin-bottom:3px}
+.market-card .val{font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#fff}
+.market-card .chg{font-size:11px;font-family:'JetBrains Mono',monospace;margin-top:2px}
+
+/* Input bar */
+.search-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.search-input{flex:1;min-width:200px;padding:8px 14px;border-radius:8px;border:1px solid #1e293b;background:#0c1021;color:#e2e8f0;font-size:14px;outline:none;transition:border-color .2s}
+.search-input:focus{border-color:#e63946}
+.search-input::placeholder{color:#334155}
+
+/* Stock tabs */
+.stock-tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px}
+.stock-tabs::-webkit-scrollbar{display:none}
+.stock-tab{flex-shrink:0;padding:6px 14px;border-radius:7px;font-size:13px;font-weight:500;border:1px solid #141a2e;background:#0c1021;color:#64748b;cursor:pointer;transition:all .25s;display:flex;align-items:center;gap:6px}
+.stock-tab:hover{color:#c8d0e0;border-color:#1e293b}
+.stock-tab.active{background:linear-gradient(135deg,rgba(230,57,70,0.12),rgba(244,162,97,0.08));border-color:rgba(230,57,70,0.35);color:#fff}
+.stock-tab .code{font-family:'JetBrains Mono',monospace;font-size:11px;color:#475569}
+.stock-tab .remove{font-size:14px;color:#475569;cursor:pointer;margin-left:2px;line-height:1}
+.stock-tab .remove:hover{color:#e63946}
+
+/* Content layout */
+.content-grid{display:grid;grid-template-columns:1fr;gap:14px}
+.content-grid.with-ai{grid-template-columns:5fr 3fr}
+@media(max-width:1024px){.content-grid.with-ai{grid-template-columns:1fr}}
+
+/* Chart tabs */
+.chart-tabs{display:flex;gap:3px;background:#080b14;border-radius:7px;padding:3px;width:fit-content;border:1px solid #141a2e;margin-bottom:10px}
+.chart-tab{padding:4px 12px;border-radius:5px;font-size:11px;font-weight:500;background:transparent;border:none;color:#475569;cursor:pointer;transition:all .2s}
+.chart-tab:hover{color:#c8d0e0}
+.chart-tab.active{background:#141a2e;color:#fff}
+
+/* Price header */
+.price-section{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.price-big{font-size:28px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#fff}
+.price-pct{font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.price-meta{display:flex;gap:14px;margin-top:5px;font-size:11px;color:#475569;font-family:'JetBrains Mono',monospace}
+.up{color:#e63946}.down{color:#22c55e}
+
+/* AI Panel */
+.ai-panel{display:flex;flex-direction:column;gap:10px}
+.ai-loading{text-align:center;padding:40px;color:#475569}
+.ai-loading .spinner{width:28px;height:28px;border:2px solid #141a2e;border-top-color:#f4a261;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.signal-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;border:1px solid;font-size:11px;font-weight:500;white-space:nowrap}
+.signal-badge.bullish{background:rgba(230,57,70,0.12);color:#f87171;border-color:rgba(230,57,70,0.25)}
+.signal-badge.neutral{background:rgba(244,162,97,0.12);color:#f4a261;border-color:rgba(244,162,97,0.25)}
+.signal-badge.caution{background:rgba(34,197,94,0.12);color:#4ade80;border-color:rgba(34,197,94,0.25)}
+
+.section-label{font-size:11px;font-weight:700;color:#475569;margin-bottom:6px;letter-spacing:.8px;text-transform:uppercase}
+.summary-text{font-size:13px;color:#94a3b8;line-height:1.7}
+.suggestion-card{background:linear-gradient(135deg,rgba(244,162,97,0.04),rgba(230,57,70,0.04));border:1px solid rgba(244,162,97,0.15);border-radius:10px;padding:14px}
+.disclaimer{font-size:10px;color:#1e293b;margin-top:10px;line-height:1.5}
+
+/* Score gauge */
+.gauge-wrap{display:flex;flex-direction:column;align-items:center;padding:8px 0}
+
+/* Settings modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center}
+.modal{background:#0c1021;border:1px solid #1e293b;border-radius:12px;padding:24px;max-width:480px;width:90%;max-height:80vh;overflow-y:auto}
+.modal h2{font-size:16px;font-weight:700;color:#fff;margin-bottom:16px}
+.modal label{font-size:12px;color:#64748b;display:block;margin-bottom:4px;margin-top:12px}
+.modal input,.modal select{width:100%;padding:8px 12px;border-radius:6px;border:1px solid #1e293b;background:#080b14;color:#e2e8f0;font-size:13px;outline:none}
+.modal input:focus{border-color:#e63946}
+.modal .note{font-size:11px;color:#334155;margin-top:4px;line-height:1.5}
+
+/* Footer */
+.footer{border-top:1px solid #0e1225;padding:14px 20px;text-align:center;font-size:11px;color:#1e293b;font-family:'JetBrains Mono',monospace}
+
+/* Empty state */
+.empty-state{text-align:center;padding:80px 20px;color:#334155}
+.empty-state h3{font-size:18px;color:#475569;margin-bottom:8px}
+.empty-state p{font-size:13px;max-width:400px;margin:0 auto;line-height:1.6}
+
+/* Chart legend */
+.chart-legend{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:6px;font-size:11px}
+.legend-line{width:10px;height:2px;display:inline-block;border-radius:1px}
+
+.fade-in{animation:fadeIn .5s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* Responsive market grid */
+@media(max-width:640px){.market-grid{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useMemo,useCallback,useRef}=React;
+const {ComposedChart,Bar,Line,XAxis,YAxis,CartesianGrid,Tooltip,ResponsiveContainer,ReferenceLine,Area,Cell}=Recharts;
+
+// ============================================================
+// 东方财富 API - 免费行情数据
+// ============================================================
+const API={
+  // 股票代码 → secid (东方财富格式)
+  toSecId(code){
+    code=code.replace(/\s/g,"").replace(/^(sh|sz|bj)/i,"");
+    if(/^6/.test(code))return`1.${code}`;
+    if(/^[03]/.test(code))return`0.${code}`;
+    if(/^[48]/.test(code))return`0.${code}`;// 北交所
+    return`1.${code}`;
+  },
+
+  // 获取实时行情
+  async getQuote(code){
+    const secid=this.toSecId(code);
+    const url=`https://push2.eastmoney.com/api/qt/stock/get?secid=${secid}&fields=f43,f44,f45,f46,f47,f48,f50,f51,f52,f55,f57,f58,f60,f116,f117,f162,f168,f169,f170,f171,f292&cb=`;
+    const res=await fetch(url);
+    const text=await res.text();
+    const json=JSON.parse(text.replace(/^[^(]*\(|\);?$/g,"") || text);
+    const d=json.data;
+    if(!d||!d.f57)throw new Error("未找到该股票");
+    return{
+      code:d.f57,name:d.f58,
+      price:d.f43/100,open:d.f44/100,high:d.f45/100,low:d.f46/100,
+      prevClose:d.f60/100,
+      volume:d.f47,amount:d.f48,
+      changePct:d.f170/100,changeAmt:d.f169/100,
+      amplitude:d.f171/100,
+      volumeRatio:d.f50/100,turnoverRate:d.f168/100,
+      pe:d.f162/100,totalMV:d.f116,
+      high52w:d.f51/100,low52w:d.f52/100,
+    };
+  },
+
+  // 获取K线数据
+  async getKline(code,days=80){
+    const secid=this.toSecId(code);
+    const url=`https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secid}&klt=101&fqt=1&lmt=${days}&end=20500101&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&cb=`;
+    const res=await fetch(url);
+    const text=await res.text();
+    const json=JSON.parse(text.replace(/^[^(]*\(|\);?$/g,"")||text);
+    if(!json.data||!json.data.klines)throw new Error("K线数据获取失败");
+    return json.data.klines.map(line=>{
+      const p=line.split(",");
+      return{date:p[0],open:+p[1],close:+p[2],high:+p[3],low:+p[4],volume:+p[5],amount:+p[6],amplitude:+p[7],changePct:+p[8],changeAmt:+p[9],turnoverRate:+p[10]};
+    });
+  },
+
+  // 获取大盘指数
+  async getIndices(){
+    const ids=["1.000001","0.399001","0.399006","1.000016","0.399300"];
+    const names=["上证指数","深证成指","创业板指","上证50","沪深300"];
+    const url=`https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=${ids.join(",")}&fields=f2,f3,f4,f6,f12,f14&cb=`;
+    try{
+      const res=await fetch(url);
+      const text=await res.text();
+      const json=JSON.parse(text.replace(/^[^(]*\(|\);?$/g,"")||text);
+      if(!json.data||!json.data.diff)return[];
+      return json.data.diff.map((d,i)=>({
+        name:d.f14||names[i],code:d.f12,
+        value:d.f2/100,changePct:d.f3/100,changeAmt:d.f4/100,
+        amount:d.f6,
+      }));
+    }catch(e){console.error("指数获取失败:",e);return[];}
+  },
+};
+
+// ============================================================
+// 技术指标计算
+// ============================================================
+function computeIndicators(kline){
+  const data=kline.map(d=>({...d,displayDate:d.date.slice(5).replace("-","/")}));
+  for(let i=0;i<data.length;i++){
+    data[i].ma5=i>=4?+(data.slice(i-4,i+1).reduce((s,d)=>s+d.close,0)/5).toFixed(2):null;
+    data[i].ma10=i>=9?+(data.slice(i-9,i+1).reduce((s,d)=>s+d.close,0)/10).toFixed(2):null;
+    data[i].ma20=i>=19?+(data.slice(i-19,i+1).reduce((s,d)=>s+d.close,0)/20).toFixed(2):null;
+  }
+  for(let i=0;i<data.length;i++){
+    if(i<14){data[i].rsi=null;continue;}
+    let g=0,l=0;
+    for(let j=i-13;j<=i;j++){const diff=data[j].close-(j>0?data[j-1].close:data[j].open);if(diff>0)g+=diff;else l-=diff;}
+    data[i].rsi=l===0?100:+(100-100/(1+g/l)).toFixed(1);
+  }
+  let e12=data[0]?.close||0,e26=e12,sig=0;
+  for(let i=0;i<data.length;i++){
+    e12=data[i].close*(2/13)+e12*(1-2/13);
+    e26=data[i].close*(2/27)+e26*(1-2/27);
+    const dif=e12-e26;sig=dif*(2/10)+sig*(1-2/10);
+    data[i].macdDIF=+dif.toFixed(3);data[i].macdDEA=+sig.toFixed(3);data[i].macdHist=+((dif-sig)*2).toFixed(3);
+  }
+  return data;
+}
+
+// ============================================================
+// Gemini AI 分析
+// ============================================================
+async function analyzeWithAI(apiKey,model,stockData,kline){
+  const last=kline.slice(-5);
+  const lastK=kline[kline.length-1];
+  const ma5=lastK?.ma5,ma10=lastK?.ma10,ma20=lastK?.ma20,rsi=lastK?.rsi;
+  const macdDIF=lastK?.macdDIF,macdDEA=lastK?.macdDEA;
+
+  const prompt=`你是一位资深A股分析师。请对以下股票进行详细分析，要求严格按照JSON格式返回，不要包含任何其他文字。
+
+股票: ${stockData.name}(${stockData.code})
+当前价: ${stockData.price} 涨跌幅: ${stockData.changePct}%
+开盘: ${stockData.open} 最高: ${stockData.high} 最低: ${stockData.low}
+量比: ${stockData.volumeRatio} 换手率: ${stockData.turnoverRate}%
+PE: ${stockData.pe}
+
+技术指标:
+MA5=${ma5} MA10=${ma10} MA20=${ma20}
+RSI(14)=${rsi}
+MACD: DIF=${macdDIF} DEA=${macdDEA}
+
+近5日K线:
+${last.map(k=>`${k.date} 开${k.open} 收${k.close} 高${k.high} 低${k.low} 涨跌${k.changePct}% 换手${k.turnoverRate}%`).join("\n")}
+
+请返回如下JSON格式(不要markdown代码块):
+{
+  "score": 评分0-100整数,
+  "risk_level": "中低/中等/中高",
+  "action": "买入/加仓/观望/减仓/卖出",
+  "direction": "看多/看空/中性",
+  "summary": "100字内的综合分析摘要",
+  "signals": [
+    {"type":"bullish或neutral或caution","label":"信号名","description":"说明"}
+  ],
+  "suggestion": "操作建议",
+  "ideal_buy": "理想买入点位和说明",
+  "stop_loss": "止损位和说明",
+  "target": "目标位和说明",
+  "position": "仓位建议"
+}`;
+
+  const apiUrl=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const res=await fetch(apiUrl,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      contents:[{parts:[{text:prompt}]}],
+      generationConfig:{temperature:0.3,maxOutputTokens:2000},
+    }),
+  });
+
+  if(!res.ok){
+    const err=await res.text();
+    throw new Error(`AI请求失败(${res.status}): ${err.slice(0,200)}`);
+  }
+
+  const result=await res.json();
+  const text=result.candidates?.[0]?.content?.parts?.[0]?.text||"";
+  // 提取JSON
+  const jsonMatch=text.match(/\{[\s\S]*\}/);
+  if(!jsonMatch)throw new Error("AI返回格式异常");
+  return JSON.parse(jsonMatch[0]);
+}
+
+// ============================================================
+// Score Gauge
+// ============================================================
+function ScoreGauge({score}){
+  const r=38,c=2*Math.PI*r;
+  const progress=(score/100)*c*0.75;
+  const color=score>=65?"#e63946":score>=45?"#f4a261":"#22c55e";
+  return(
+    <div className="gauge-wrap">
+      <svg width="96" height="78" viewBox="0 0 100 90">
+        <circle cx="50" cy="50" r={r} fill="none" stroke="#141a2e" strokeWidth="5" strokeDasharray={`${c*.75} ${c*.25}`} transform="rotate(135 50 50)" strokeLinecap="round"/>
+        <circle cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="5" strokeDasharray={`${progress} ${c-progress}`} transform="rotate(135 50 50)" strokeLinecap="round" style={{transition:"stroke-dasharray 1s ease"}}/>
+        <text x="50" y="46" textAnchor="middle" fill={color} fontSize="22" fontWeight="700" fontFamily="'JetBrains Mono'">{score}</text>
+        <text x="50" y="62" textAnchor="middle" fill="#475569" fontSize="9">综合评分</text>
+      </svg>
+    </div>
+  );
+}
+
+// ============================================================
+// Settings Modal
+// ============================================================
+function SettingsModal({settings,onSave,onClose}){
+  const[s,setS]=useState({...settings});
+  return(
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal fade-in" onClick={e=>e.stopPropagation()}>
+        <h2>⚙️ 设置</h2>
+        <label>Gemini API Key *</label>
+        <input type="password" value={s.apiKey} onChange={e=>setS({...s,apiKey:e.target.value})} placeholder="填入你的 Gemini API Key"/>
+        <div className="note">从 <a href="https://aistudio.google.com/apikey" target="_blank">Google AI Studio</a> 免费获取。Key 仅保存在你的浏览器中，不会上传到任何服务器。</div>
+
+        <label>Gemini 模型</label>
+        <select value={s.model} onChange={e=>setS({...s,model:e.target.value})}>
+          <option value="gemini-2.0-flash">Gemini 2.0 Flash (快速，推荐)</option>
+          <option value="gemini-2.5-flash-preview-05-20">Gemini 2.5 Flash (更强)</option>
+          <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+        </select>
+        <div className="note">推荐使用 Flash 模型，速度快且免费额度高。</div>
+
+        <div style={{marginTop:20,display:"flex",gap:8,justifyContent:"flex-end"}}>
+          <button className="btn btn-ghost" onClick={onClose}>取消</button>
+          <button className="btn btn-primary" onClick={()=>{onSave(s);onClose();}}>保存</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Chart Tooltip
+// ============================================================
+function KTooltip({active,payload}){
+  if(!active||!payload?.length)return null;
+  const d=payload[0]?.payload;if(!d)return null;
+  const isUp=d.close>=d.open;
+  return(
+    <div style={{background:"rgba(8,11,20,0.95)",border:"1px solid #1e293b",borderRadius:8,padding:"8px 12px"}}>
+      <div style={{fontSize:10,color:"#475569",marginBottom:4,fontFamily:"'JetBrains Mono'"}}>{d.date||d.displayDate}</div>
+      <div style={{display:"grid",gridTemplateColumns:"auto auto",gap:"1px 14px",fontSize:11}}>
+        <span style={{color:"#475569"}}>开</span><span style={{fontFamily:"'JetBrains Mono'",color:isUp?"#e63946":"#22c55e"}}>{d.open}</span>
+        <span style={{color:"#475569"}}>收</span><span style={{fontFamily:"'JetBrains Mono'",color:isUp?"#e63946":"#22c55e"}}>{d.close}</span>
+        <span style={{color:"#475569"}}>高</span><span style={{fontFamily:"'JetBrains Mono'",color:"#e63946"}}>{d.high}</span>
+        <span style={{color:"#475569"}}>低</span><span style={{fontFamily:"'JetBrains Mono'",color:"#22c55e"}}>{d.low}</span>
+        <span style={{color:"#475569"}}>量</span><span style={{fontFamily:"'JetBrains Mono'",color:"#60a5fa"}}>{d.volume?(d.volume/10000).toFixed(0)+"万":"—"}</span>
+        {d.changePct!=null&&<><span style={{color:"#475569"}}>涨跌</span><span style={{fontFamily:"'JetBrains Mono'",color:d.changePct>=0?"#e63946":"#22c55e"}}>{d.changePct>0?"+":""}{d.changePct}%</span></>}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Main App
+// ============================================================
+function App(){
+  // State
+  const[settings,setSettings]=useState(()=>{
+    try{const s=localStorage.getItem("dsa_settings");return s?JSON.parse(s):{apiKey:"",model:"gemini-2.0-flash"};}
+    catch{return{apiKey:"",model:"gemini-2.0-flash"};}
+  });
+  const[showSettings,setShowSettings]=useState(false);
+  const[indices,setIndices]=useState([]);
+  const[stocks,setStocks]=useState([]); // [{code,name,quote,kline,chartData,aiAnalysis,loading,aiLoading,error}]
+  const[activeIdx,setActiveIdx]=useState(0);
+  const[chartTab,setChartTab]=useState("kline");
+  const[timeRange,setTimeRange]=useState(30);
+  const[inputVal,setInputVal]=useState("");
+  const inputRef=useRef();
+
+  // Save settings
+  const saveSettings=useCallback((s)=>{
+    setSettings(s);
+    try{localStorage.setItem("dsa_settings",JSON.stringify(s));}catch{}
+  },[]);
+
+  // Load indices on mount
+  useEffect(()=>{
+    API.getIndices().then(setIndices).catch(console.error);
+    // Auto refresh every 30s during trading hours
+    const timer=setInterval(()=>{
+      const h=new Date().getHours();
+      if(h>=9&&h<=15)API.getIndices().then(setIndices).catch(console.error);
+    },30000);
+    return()=>clearInterval(timer);
+  },[]);
+
+  // Add stock
+  const addStock=useCallback(async(code)=>{
+    code=code.trim().replace(/^(sh|sz|bj)/i,"");
+    if(!code||!/^\d{6}$/.test(code))return;
+    if(stocks.find(s=>s.code===code))return setActiveIdx(stocks.findIndex(s=>s.code===code));
+
+    const newStock={code,name:"加载中...",quote:null,kline:null,chartData:null,aiAnalysis:null,loading:true,aiLoading:false,error:null};
+    setStocks(prev=>{const next=[...prev,newStock];setActiveIdx(next.length-1);return next;});
+
+    try{
+      const[quote,kline]=await Promise.all([API.getQuote(code),API.getKline(code)]);
+      const chartData=computeIndicators(kline);
+      setStocks(prev=>prev.map(s=>s.code===code?{...s,name:quote.name,quote,kline,chartData,loading:false}:s));
+    }catch(e){
+      setStocks(prev=>prev.map(s=>s.code===code?{...s,error:e.message,loading:false}:s));
+    }
+  },[stocks]);
+
+  // Remove stock
+  const removeStock=useCallback((code)=>{
+    setStocks(prev=>{
+      const next=prev.filter(s=>s.code!==code);
+      if(activeIdx>=next.length)setActiveIdx(Math.max(0,next.length-1));
+      return next;
+    });
+  },[activeIdx]);
+
+  // Run AI analysis
+  const runAI=useCallback(async(code)=>{
+    if(!settings.apiKey){setShowSettings(true);return;}
+    const stock=stocks.find(s=>s.code===code);
+    if(!stock?.quote||!stock?.chartData)return;
+
+    setStocks(prev=>prev.map(s=>s.code===code?{...s,aiLoading:true,aiAnalysis:null}:s));
+    try{
+      const result=await analyzeWithAI(settings.apiKey,settings.model,stock.quote,stock.chartData);
+      setStocks(prev=>prev.map(s=>s.code===code?{...s,aiAnalysis:result,aiLoading:false}:s));
+    }catch(e){
+      setStocks(prev=>prev.map(s=>s.code===code?{...s,aiAnalysis:{error:e.message},aiLoading:false}:s));
+    }
+  },[stocks,settings]);
+
+  // Handle input
+  const handleSubmit=useCallback((e)=>{
+    e?.preventDefault();
+    const codes=inputVal.split(/[,，\s]+/).filter(c=>c.trim());
+    codes.forEach(c=>addStock(c));
+    setInputVal("");
+    inputRef.current?.focus();
+  },[inputVal,addStock]);
+
+  const stock=stocks[activeIdx]||null;
+  const chartData=useMemo(()=>(stock?.chartData||[]).slice(-timeRange),[stock,timeRange]);
+  const priceRange=useMemo(()=>{
+    if(!chartData.length)return[0,100];
+    const prices=chartData.flatMap(d=>[d.high,d.low]);
+    return[Math.min(...prices)*.998,Math.max(...prices)*1.002];
+  },[chartData]);
+  const ai=stock?.aiAnalysis||null;
+  const hasAI=ai&&!ai.error;
+  const signalIcons={bullish:"▲",neutral:"◆",caution:"▼"};
+
+  return(
+    <div className="app">
+      {/* Header */}
+      <header className="header">
+        <div className="header-inner">
+          <div className="logo-area">
+            <div className="logo">A</div>
+            <div>
+              <div className="logo-text">A股智能分析终端</div>
+              <div className="logo-sub">INTERACTIVE STOCK ANALYSIS</div>
+            </div>
+          </div>
+          <div className="header-right">
+            <button className="btn btn-ghost btn-sm" onClick={()=>setShowSettings(true)}>⚙️ 设置</button>
+          </div>
+        </div>
+      </header>
+
+      <div className="main">
+        {/* Market overview */}
+        {indices.length>0&&(
+          <div className="market-grid">
+            {indices.map((idx,i)=>(
+              <div key={i} className="card market-card">
+                <div className="label">{idx.name}</div>
+                <div className="val">{idx.value?.toLocaleString("zh-CN",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                <div className={`chg ${idx.changePct>=0?"up":"down"}`}>{idx.changePct>=0?"+":""}{idx.changePct?.toFixed(2)}%</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Search bar */}
+        <form className="search-bar" onSubmit={handleSubmit}>
+          <input ref={inputRef} className="search-input" value={inputVal} onChange={e=>setInputVal(e.target.value)}
+            placeholder="输入股票代码，如 600519（多只用逗号分隔）"/>
+          <button type="submit" className="btn btn-primary" disabled={!inputVal.trim()}>添加分析</button>
+        </form>
+
+        {/* Stock tabs */}
+        {stocks.length>0&&(
+          <div className="stock-tabs">
+            {stocks.map((s,i)=>(
+              <div key={s.code} className={`stock-tab ${i===activeIdx?"active":""}`} onClick={()=>setActiveIdx(i)}>
+                <span className="code">{s.code}</span>
+                {s.name!=="加载中..."&&s.name}
+                {s.quote&&<span className={s.quote.changePct>=0?"up":"down"} style={{fontSize:11,fontFamily:"'JetBrains Mono'"}}>{s.quote.changePct>=0?"+":""}{s.quote.changePct?.toFixed(2)}%</span>}
+                {s.loading&&<span style={{fontSize:10}}>⏳</span>}
+                <span className="remove" onClick={e=>{e.stopPropagation();removeStock(s.code);}}>✕</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Empty state */}
+        {stocks.length===0&&(
+          <div className="empty-state">
+            <h3>输入股票代码开始分析</h3>
+            <p>在上方搜索框输入A股代码（如 600519），点击「添加分析」即可获取实时行情、K线图表和 AI 智能分析。</p>
+            <div style={{marginTop:20,display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
+              {[{c:"600519",n:"贵州茅台"},{c:"000858",n:"五粮液"},{c:"300750",n:"宁德时代"},{c:"600036",n:"招商银行"}].map(s=>(
+                <button key={s.c} className="btn btn-ghost btn-sm" onClick={()=>addStock(s.c)}>{s.c} {s.n}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Main content */}
+        {stock&&(
+          <div className={`content-grid ${hasAI?"with-ai":""} fade-in`} key={stock.code}>
+            {/* Left: Charts */}
+            <div>
+              {/* Error */}
+              {stock.error&&<div className="card" style={{color:"#e63946",padding:20}}>❌ {stock.error}</div>}
+
+              {/* Loading */}
+              {stock.loading&&<div className="card ai-loading"><div className="spinner"></div>获取行情数据...</div>}
+
+              {/* Price + Chart */}
+              {stock.quote&&!stock.loading&&(
+                <>
+                  <div className="card" style={{marginBottom:10}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10}}>
+                      <div>
+                        <div className="price-section">
+                          <span className="price-big">{stock.quote.price?.toFixed(2)}</span>
+                          <span className={`price-pct ${stock.quote.changePct>=0?"up":"down"}`}>{stock.quote.changePct>=0?"+":""}{stock.quote.changePct?.toFixed(2)}%</span>
+                          <span style={{fontSize:13,color:"#475569"}}>{stock.quote.changeAmt>=0?"+":""}{stock.quote.changeAmt?.toFixed(2)}</span>
+                        </div>
+                        <div className="price-meta">
+                          <span>高 <span className="up">{stock.quote.high?.toFixed(2)}</span></span>
+                          <span>低 <span className="down">{stock.quote.low?.toFixed(2)}</span></span>
+                          <span>量比 <span style={{color:"#60a5fa"}}>{stock.quote.volumeRatio?.toFixed(2)}</span></span>
+                          <span>换手 <span style={{color:"#60a5fa"}}>{stock.quote.turnoverRate?.toFixed(2)}%</span></span>
+                          {chartData.length>0&&chartData[chartData.length-1].rsi&&<span>RSI <span style={{color:"#f4a261"}}>{chartData[chartData.length-1].rsi}</span></span>}
+                        </div>
+                      </div>
+                      <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                        {[15,30,60].map(r=>(
+                          <button key={r} className={`btn btn-ghost btn-sm`} style={timeRange===r?{background:"#141a2e",color:"#fff",borderColor:"#1e293b"}:{}} onClick={()=>setTimeRange(r)}>{r}日</button>
+                        ))}
+                        <button className="btn btn-primary btn-sm" onClick={()=>runAI(stock.code)} disabled={stock.aiLoading}>
+                          {stock.aiLoading?"分析中...":"🤖 AI分析"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {chartData.length>0&&(
+                    <>
+                      <div className="chart-tabs">
+                        {[{k:"kline",l:"K线"},{k:"macd",l:"MACD"},{k:"rsi",l:"RSI"},{k:"vol",l:"成交量"}].map(t=>(
+                          <button key={t.k} className={`chart-tab ${chartTab===t.k?"active":""}`} onClick={()=>setChartTab(t.k)}>{t.l}</button>
+                        ))}
+                      </div>
+
+                      {/* K-Line */}
+                      {chartTab==="kline"&&(
+                        <div className="card">
+                          <ResponsiveContainer width="100%" height={360}>
+                            <ComposedChart data={chartData} margin={{top:8,right:8,left:0,bottom:0}}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#0e1225"/>
+                              <XAxis dataKey="displayDate" tick={{fontSize:9,fill:"#334155"}} axisLine={{stroke:"#0e1225"}} tickLine={false} interval={Math.floor(chartData.length/7)}/>
+                              <YAxis domain={priceRange} tick={{fontSize:9,fill:"#334155"}} axisLine={false} tickLine={false} tickFormatter={v=>v.toFixed(0)} width={50}/>
+                              <Tooltip content={<KTooltip/>}/>
+                              <Bar dataKey="high" barSize={Math.max(Math.min(500/chartData.length,11),2)}
+                                shape={props=>{
+                                  const d=props.payload;if(!d)return null;
+                                  const isUp=d.close>=d.open,color=isUp?"#e63946":"#22c55e";
+                                  const barW=Math.max(props.width*.65,2),xC=props.x+props.width/2;
+                                  const domainH=priceRange[1]-priceRange[0],chartH=360-8-18;
+                                  const sc=v=>8+(priceRange[1]-v)/domainH*chartH;
+                                  const yH=sc(d.high),yL=sc(d.low),yO=sc(d.open),yCl=sc(d.close);
+                                  return(<g><line x1={xC} y1={yH} x2={xC} y2={yL} stroke={color} strokeWidth={1}/><rect x={xC-barW/2} y={Math.min(yO,yCl)} width={barW} height={Math.max(Math.abs(yO-yCl),1)} fill={color} opacity={.85} rx={.5}/></g>);
+                                }}/>
+                              <Line type="monotone" dataKey="ma5" stroke="#f4a261" dot={false} strokeWidth={1.1} connectNulls/>
+                              <Line type="monotone" dataKey="ma10" stroke="#60a5fa" dot={false} strokeWidth={1.1} connectNulls/>
+                              <Line type="monotone" dataKey="ma20" stroke="#a78bfa" dot={false} strokeWidth={1.1} connectNulls/>
+                            </ComposedChart>
+                          </ResponsiveContainer>
+                          <div className="chart-legend">
+                            <span><span className="legend-line" style={{background:"#f4a261"}}></span> <span style={{color:"#475569"}}>MA5</span></span>
+                            <span><span className="legend-line" style={{background:"#60a5fa"}}></span> <span style={{color:"#475569"}}>MA10</span></span>
+                            <span><span className="legend-line" style={{background:"#a78bfa"}}></span> <span style={{color:"#475569"}}>MA20</span></span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* MACD */}
+                      {chartTab==="macd"&&(
+                        <div className="card">
+                          <ResponsiveContainer width="100%" height={360}>
+                            <ComposedChart data={chartData} margin={{top:8,right:8,left:0,bottom:0}}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#0e1225"/>
+                              <XAxis dataKey="displayDate" tick={{fontSize:9,fill:"#334155"}} axisLine={{stroke:"#0e1225"}} tickLine={false} interval={Math.floor(chartData.length/7)}/>
+                              <YAxis tick={{fontSize:9,fill:"#334155"}} axisLine={false} tickLine={false} width={50}/>
+                              <Tooltip content={({active,payload})=>{
+                                if(!active||!payload?.length)return null;const d=payload[0]?.payload;
+                                return(<div style={{background:"rgba(8,11,20,0.95)",border:"1px solid #1e293b",borderRadius:8,padding:"6px 10px",fontSize:11,fontFamily:"'JetBrains Mono'"}}>
+                                  <div style={{color:"#475569",marginBottom:3}}>{d.displayDate}</div>
+                                  <div style={{color:"#f4a261"}}>DIF: {d.macdDIF}</div>
+                                  <div style={{color:"#22d3ee"}}>DEA: {d.macdDEA}</div>
+                                  <div style={{color:d.macdHist>=0?"#e63946":"#22c55e"}}>MACD: {d.macdHist}</div>
+                                </div>);
+                              }}/>
+                              <ReferenceLine y={0} stroke="#1e293b" strokeDasharray="3 3"/>
+                              <Bar dataKey="macdHist" barSize={Math.max(Math.min(500/chartData.length,9),2)}>
+                                {chartData.map((d,i)=>(<Cell key={i} fill={d.macdHist>=0?"#e63946":"#22c55e"} opacity={.65}/>))}
+                              </Bar>
+                              <Line type="monotone" dataKey="macdDIF" stroke="#f4a261" dot={false} strokeWidth={1.3}/>
+                              <Line type="monotone" dataKey="macdDEA" stroke="#22d3ee" dot={false} strokeWidth={1.3}/>
+                            </ComposedChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+
+                      {/* RSI */}
+                      {chartTab==="rsi"&&(
+                        <div className="card">
+                          <ResponsiveContainer width="100%" height={360}>
+                            <ComposedChart data={chartData} margin={{top:8,right:8,left:0,bottom:0}}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#0e1225"/>
+                              <XAxis dataKey="displayDate" tick={{fontSize:9,fill:"#334155"}} axisLine={{stroke:"#0e1225"}} tickLine={false} interval={Math.floor(chartData.length/7)}/>
+                              <YAxis domain={[0,100]} tick={{fontSize:9,fill:"#334155"}} axisLine={false} tickLine={false} width={30}/>
+                              <Tooltip content={({active,payload})=>{
+                                if(!active||!payload?.length)return null;const d=payload[0]?.payload;
+                                return(<div style={{background:"rgba(8,11,20,0.95)",border:"1px solid #1e293b",borderRadius:8,padding:"6px 10px",fontSize:11,fontFamily:"'JetBrains Mono'"}}>
+                                  <div style={{color:"#475569",marginBottom:3}}>{d.displayDate}</div>
+                                  <div style={{color:d.rsi>70?"#e63946":d.rsi<30?"#22c55e":"#f4a261"}}>RSI: {d.rsi??"—"}</div>
+                                </div>);
+                              }}/>
+                              <ReferenceLine y={70} stroke="rgba(230,57,70,.3)" strokeDasharray="5 3" label={{value:"超买70",fill:"rgba(230,57,70,.5)",fontSize:9,position:"right"}}/>
+                              <ReferenceLine y={30} stroke="rgba(34,197,94,.3)" strokeDasharray="5 3" label={{value:"超卖30",fill:"rgba(34,197,94,.5)",fontSize:9,position:"right"}}/>
+                              <Area type="monotone" dataKey="rsi" stroke="#f4a261" fill="#f4a261" fillOpacity={.06} strokeWidth={1.8} dot={false} connectNulls/>
+                            </ComposedChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+
+                      {/* Volume */}
+                      {chartTab==="vol"&&(
+                        <div className="card">
+                          <ResponsiveContainer width="100%" height={360}>
+                            <ComposedChart data={chartData} margin={{top:8,right:8,left:0,bottom:0}}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#0e1225"/>
+                              <XAxis dataKey="displayDate" tick={{fontSize:9,fill:"#334155"}} axisLine={{stroke:"#0e1225"}} tickLine={false} interval={Math.floor(chartData.length/7)}/>
+                              <YAxis tick={{fontSize:9,fill:"#334155"}} axisLine={false} tickLine={false} width={50} tickFormatter={v=>`${(v/10000).toFixed(0)}万`}/>
+                              <Tooltip content={({active,payload})=>{
+                                if(!active||!payload?.length)return null;const d=payload[0]?.payload;
+                                return(<div style={{background:"rgba(8,11,20,0.95)",border:"1px solid #1e293b",borderRadius:8,padding:"6px 10px",fontSize:11,fontFamily:"'JetBrains Mono'"}}>
+                                  <div style={{color:"#475569",marginBottom:3}}>{d.displayDate}</div>
+                                  <div style={{color:"#60a5fa"}}>成交量: {(d.volume/10000).toFixed(0)}万</div>
+                                  <div style={{color:d.changePct>=0?"#e63946":"#22c55e"}}>涨跌: {d.changePct>0?"+":""}{d.changePct}%</div>
+                                </div>);
+                              }}/>
+                              <Bar dataKey="volume" barSize={Math.max(Math.min(500/chartData.length,11),2)} radius={[2,2,0,0]}>
+                                {chartData.map((d,i)=>(<Cell key={i} fill={d.close>=d.open?"#e63946":"#22c55e"} opacity={.5}/>))}
+                              </Bar>
+                            </ComposedChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Right: AI Panel */}
+            {hasAI&&(
+              <div className="ai-panel fade-in">
+                <div className="card">
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      <div style={{width:18,height:18,borderRadius:4,background:"linear-gradient(135deg,#f4a261,#e63946)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"#fff",fontWeight:700}}>AI</div>
+                      <span style={{fontSize:13,fontWeight:700,color:"#fff"}}>智能诊断</span>
+                    </div>
+                    {ai.risk_level&&<span className={`signal-badge ${ai.risk_level.includes("低")?"bullish":ai.risk_level.includes("高")?"caution":"neutral"}`}>{ai.risk_level}</span>}
+                  </div>
+                  <ScoreGauge score={ai.score||50}/>
+                  {ai.action&&<div style={{textAlign:"center",fontSize:12,marginTop:-4}}>
+                    <span className={`signal-badge ${ai.direction==="看多"?"bullish":ai.direction==="看空"?"caution":"neutral"}`} style={{fontSize:12,padding:"3px 10px"}}>
+                      {ai.action} · {ai.direction}
+                    </span>
+                  </div>}
+                </div>
+
+                {ai.signals?.length>0&&(
+                  <div className="card">
+                    <div className="section-label">信号指标</div>
+                    {ai.signals.map((sig,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"flex-start",gap:6,marginBottom:8}}>
+                        <span className={`signal-badge ${sig.type}`}><span style={{fontSize:9}}>{signalIcons[sig.type]||"◆"}</span>{sig.label}</span>
+                        <span style={{fontSize:11,color:"#64748b",lineHeight:1.5,paddingTop:2}}>{sig.description}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {ai.summary&&(
+                  <div className="card">
+                    <div className="section-label">分析摘要</div>
+                    <p className="summary-text">{ai.summary}</p>
+                  </div>
+                )}
+
+                {ai.suggestion&&(
+                  <div className="suggestion-card">
+                    <div style={{fontSize:11,fontWeight:700,color:"#f4a261",marginBottom:6}}>📍 操作建议</div>
+                    <p className="summary-text">{ai.suggestion}</p>
+                    {(ai.ideal_buy||ai.stop_loss||ai.target)&&(
+                      <div style={{marginTop:8,fontSize:11,fontFamily:"'JetBrains Mono'",color:"#475569",lineHeight:1.8}}>
+                        {ai.ideal_buy&&<div>🎯 买入: <span style={{color:"#94a3b8"}}>{ai.ideal_buy}</span></div>}
+                        {ai.stop_loss&&<div>🛑 止损: <span style={{color:"#94a3b8"}}>{ai.stop_loss}</span></div>}
+                        {ai.target&&<div>🎊 目标: <span style={{color:"#94a3b8"}}>{ai.target}</span></div>}
+                        {ai.position&&<div>💰 仓位: <span style={{color:"#94a3b8"}}>{ai.position}</span></div>}
+                      </div>
+                    )}
+                    <p className="disclaimer">⚠️ 以上分析由 AI 自动生成，仅供参考，不构成投资建议。市场有风险，投资需谨慎。</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* AI Loading */}
+            {stock?.aiLoading&&(
+              <div className="ai-panel">
+                <div className="card ai-loading">
+                  <div className="spinner"></div>
+                  AI 正在分析 {stock.name}...
+                </div>
+              </div>
+            )}
+
+            {/* AI Error */}
+            {ai?.error&&!hasAI&&(
+              <div className="ai-panel">
+                <div className="card" style={{color:"#e63946",fontSize:12,lineHeight:1.7}}>
+                  <strong>AI 分析失败</strong><br/>{ai.error}
+                  <div style={{marginTop:10}}>
+                    <button className="btn btn-ghost btn-sm" onClick={()=>setShowSettings(true)}>检查设置</button>
+                    {" "}
+                    <button className="btn btn-ghost btn-sm" onClick={()=>runAI(stock.code)}>重试</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="footer">
+        数据来源: 东方财富 · AI 分析: Gemini · 仅供学习参考，不构成投资建议
+      </div>
+
+      {/* Settings Modal */}
+      {showSettings&&<SettingsModal settings={settings} onSave={saveSettings} onClose={()=>setShowSettings(false)}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
